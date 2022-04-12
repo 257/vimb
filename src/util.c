@@ -803,7 +803,7 @@ char *util_sanitize_filename(char *filename)
  */
 char *util_sanitize_uri(const char *uri_str)
 {
-    SoupURI *uri;
+    GUri *uri;
     char *sanitized_uri;
     char *for_display;
 
@@ -819,15 +819,11 @@ char *util_sanitize_uri(const char *uri_str)
     for_display = g_strdup(uri_str);
 #endif
 
-    /* Sanitize the uri only in case there is a @ which might be the indicator
-     * for credentials used in uri. */
-    if (!strchr(for_display, '@')) {
-        return for_display;
-    }
-
-    uri           = soup_uri_new(for_display);
-    sanitized_uri = soup_uri_to_string(uri, FALSE);
-    soup_uri_free(uri);
+    uri = g_uri_build_with_user(G_URI_FLAGS_HAS_AUTH_PARAMS,
+                                "", NULL, NULL, NULL, NULL, -1,
+                                for_display, NULL, NULL);
+    sanitized_uri = g_uri_to_string_partial(uri, G_URI_HIDE_AUTH_PARAMS);
+    g_uri_unref(uri);
     g_free(for_display);
 
     return sanitized_uri;

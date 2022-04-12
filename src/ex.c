@@ -401,9 +401,11 @@ void ex_input_changed(Client *c, const char *text)
 {
     GtkTextIter start, end;
     GtkTextBuffer *buffer = c->buffer;
+    gboolean newline = FALSE;
 
     /* don't add line breaks if content is pasted from clipboard into inputbox */
     if (gtk_text_buffer_get_line_count(buffer) > 1) {
+        newline = TRUE;
         /* remove everything from the buffer, except of the first line */
         gtk_text_buffer_get_iter_at_line(buffer, &start, 0);
         if (gtk_text_iter_forward_to_line_end(&start)) {
@@ -433,6 +435,10 @@ void ex_input_changed(Client *c, const char *text)
                 command_search(c, &((Arg){*text == '/' ? 1 : -1, (char*)text + 1}), FALSE);
             }
             break;
+        default:
+            if (newline)
+                input_activate(c);
+            break;
     }
 }
 
@@ -442,21 +448,13 @@ gboolean ex_fill_completion(GtkListStore *store, const char *input)
     ExInfo *cmd;
     gboolean found = FALSE;
 
-    if (!input || *input == '\0') {
-        for (int i = 0; i < LENGTH(commands); i++) {
-            cmd = &commands[i];
+    for (unsigned int i = 0; i < LENGTH(commands); i++) {
+        cmd = &commands[i];
+        if (!input || (*input == '\0') || g_str_has_prefix(cmd->name, input)) {
             gtk_list_store_append(store, &iter);
             gtk_list_store_set(store, &iter, COMPLETION_STORE_FIRST, cmd->name, -1);
+
             found = TRUE;
-        }
-    } else {
-        for (int i = 0; i < LENGTH(commands); i++) {
-            cmd = &commands[i];
-            if (g_str_has_prefix(cmd->name, input)) {
-                gtk_list_store_append(store, &iter);
-                gtk_list_store_set(store, &iter, COMPLETION_STORE_FIRST, cmd->name, -1);
-                found = TRUE;
-            }
         }
     }
 
@@ -628,15 +626,15 @@ static gboolean parse_count(const char **input, ExArg *arg)
  */
 static gboolean parse_command_name(Client *c, const char **input, ExArg *arg)
 {
-    int len      = 0;
-    int first    = 0;   /* number of first found command */
-    int matches  = 0;   /* number of commands that matches the input */
-    char cmd[20] = {0}; /* name of found command */
+    unsigned int len = 0;
+    int first        = 0;   /* number of first found command */
+    int matches      = 0;   /* number of commands that matches the input */
+    char cmd[20]     = {0}; /* name of found command */
 
     do {
         /* copy the next char into the cmd buffer */
         cmd[len++] = **input;
-        int i;
+        unsigned int i;
         for (i = first, matches = 0; i < LENGTH(commands); i++) {
             /* commands are grouped by their first letters, if we reached the
              * end of the group there are no more possible matches to find */
@@ -1048,7 +1046,7 @@ static VbCmdResult ex_queue(Client *c, const ExArg *arg)
  */
 static VbCmdResult ex_register(Client *c, const ExArg *arg)
 {
-    int idx;
+    unsigned int idx;
     char *reg;
     const char *regchars = REG_CHARS;
     GString *str = g_string_new("-- Register --");

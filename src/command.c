@@ -40,6 +40,9 @@ typedef struct {
     PostEditFunc func;
 } EditorData;
 
+// GAsyncReadyCallback yank_selection_cb;
+void yank_selection_cb(GObject *source_object, GAsyncResult *res, gpointer user_data);
+
 static void resume_editor(GPid pid, int status, gpointer edata);
 
 /**
@@ -178,7 +181,8 @@ gboolean command_yank(Client *c, const Arg *arg, char buf)
         /* copy web view selection to clipboard */
         webkit_web_view_execute_editing_command(c->webview, WEBKIT_EDITING_COMMAND_COPY);
         /* read back copy from clipboard */
-        yanked = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_PRIMARY));
+        gdk_clipboard_read_text_async(GDK_GET_PRIMARY, NULL,
+        			      yank_selection_cb, (gpointer)yanked);
     } else {
         /* use current arg.s as new clipboard content */
         yanked = g_strdup(arg->s);
@@ -193,10 +197,8 @@ gboolean command_yank(Client *c, const Arg *arg, char buf)
     /* store in vimb register buf if buf != 0 */
     vb_register_add(c, buf, yanked);
 
-    /* store in X clipboard primary (selected text copy, middle mouse paste) */
-    gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_PRIMARY), yanked, -1);
-    /* store in X "windows style" clipboard */
-    gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD), yanked, -1);
+    gdk_clipboard_set_text(GDK_GET_CLIPBOARD, yanked);
+    gdk_clipboard_set_text(GDK_GET_PRIMARY, yanked);
 
     vb_echo(c, MSG_NORMAL, FALSE, "Yanked: %s", yanked);
 
@@ -233,6 +235,7 @@ gboolean command_save(Client *c, const Arg *arg)
 #ifdef FEATURE_QUEUE
 gboolean command_queue(Client *c, const Arg *arg)
 {
+    fprintf(stderr, "%s\n", __func__);
     gboolean res = FALSE;
     int count    = 0;
     char *uri;
@@ -363,4 +366,9 @@ static void resume_editor(GPid pid, int status, gpointer edata)
     g_free(ed->file);
     g_slice_free(EditorData, ed);
     g_spawn_close_pid(pid);
+}
+
+void yank_selection_cb(GObject *source_object, GAsyncResult *res, gpointer user_data)
+{
+        user_data = gdk_clipboard_read_text_finish(GDK_GET_PRIMARY, res, NULL);
 }

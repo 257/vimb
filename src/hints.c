@@ -22,7 +22,6 @@
 #include <webkit2/webkit2.h>
 #include <JavaScriptCore/JavaScript.h>
 #include <gdk/gdkkeysyms.h>
-#include <gdk/gdkkeysyms-compat.h>
 #include "hints.h"
 #include "main.h"
 #include "ascii.h"

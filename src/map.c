@@ -17,7 +17,6 @@
  * along with this program. If not, see http://www.gnu.org/licenses/.
  */
 
-#include <gdk/gdkkeysyms-compat.h>
 #include <gdk/gdkkeysyms.h>
 #include <string.h>
 
@@ -31,46 +30,42 @@ static char *convert_keylabel(const char *in, int inlen, int *len);
 static char *convert_keys(const char *in, int inlen, int *len);
 static gboolean do_timeout(Client *c);
 static void free_map(Map *map);
-static int keyval_to_string(guint keyval, guint state, guchar *string);
+static int keyval_to_string(guint keyval, GdkModifierType state, guchar *string);
 static gboolean map_delete_by_lhs(Client *c, const char *lhs, int len, char mode);
 static void showcmd(Client *c, int ch);
 static char *transchar(int c);
 static int utf_char2bytes(guint c, guchar *buf);
-static void queue_event(GdkEventKey *e);
+static void queue_event(GtkEventControllerKey *e);
 static void process_events(void);
 static void free_events(void);
-static void process_event(GdkEventKey* event);
+static void process_event(GtkEventControllerKey* event);
 
 extern struct Vimb vb;
 
 static struct {
-    guint state;
+    GdkModifierType state;
     guint keyval;
     char one;
     char two;
 } special_keys[] = {
-    /* TODO: In GTK3, keysyms changed to have a KEY_ prefix.
-     * See gdkkeysyms.h and gdkkeysyms-compat.h
-     */
-    {GDK_SHIFT_MASK,    GDK_Tab,       'k', 'B'},
-    {0,                 GDK_Up,        'k', 'u'},
-    {0,                 GDK_Down,      'k', 'd'},
-    {0,                 GDK_Left,      'k', 'l'},
-    {0,                 GDK_Right,     'k', 'r'},
-    {0,                 GDK_F1,        'k', '1'},
-    {0,                 GDK_F2,        'k', '2'},
-    {0,                 GDK_F3,        'k', '3'},
-    {0,                 GDK_F4,        'k', '4'},
-    {0,                 GDK_F5,        'k', '5'},
-    {0,                 GDK_F6,        'k', '6'},
-    {0,                 GDK_F7,        'k', '7'},
-    {0,                 GDK_F8,        'k', '8'},
-    {0,                 GDK_F9,        'k', '9'},
-    {0,                 GDK_F10,       'k', ';'},
-    {0,                 GDK_F11,       'F', '1'},
-    {0,                 GDK_F12,       'F', '2'},
-    {0,                 GDK_Prior,     'k', 'P'}, /* page up */
-    {0,                 GDK_Next,      'k', 'N'}, /* page down   */
+    {GDK_SHIFT_MASK,    GDK_KEY_Tab,       'k', 'B'},
+    {0,                 GDK_KEY_Up,        'k', 'u'},
+    {0,                 GDK_KEY_Left,      'k', 'l'},
+    {0,                 GDK_KEY_Right,     'k', 'r'},
+    {0,                 GDK_KEY_F1,        'k', '1'},
+    {0,                 GDK_KEY_F2,        'k', '2'},
+    {0,                 GDK_KEY_F3,        'k', '3'},
+    {0,                 GDK_KEY_F4,        'k', '4'},
+    {0,                 GDK_KEY_F5,        'k', '5'},
+    {0,                 GDK_KEY_F6,        'k', '6'},
+    {0,                 GDK_KEY_F7,        'k', '7'},
+    {0,                 GDK_KEY_F8,        'k', '8'},
+    {0,                 GDK_KEY_F9,        'k', '9'},
+    {0,                 GDK_KEY_F10,       'k', ';'},
+    {0,                 GDK_KEY_F11,       'F', '1'},
+    {0,                 GDK_KEY_F12,       'F', '2'},
+    {0,                 GDK_KEY_Prior,     'k', 'P'}, /* page up */
+    {0,                 GDK_KEY_Next,      'k', 'N'}, /* page down   */
 };
 
 static struct {
@@ -336,28 +331,29 @@ gboolean map_delete(Client *c, const char *in, char mode)
  * Handle all key events, convert the key event into the internal used ASCII
  * representation and put this into the key queue to be mapped.
  */
-gboolean on_map_keypress(GtkWidget *widget, GdkEventKey* event, Client *c)
+gboolean on_map_keypress(GtkEventControllerKey *controller,
+                         unsigned keyval, unsigned keycode,
+                         GdkModifierType state, Client *c)
 {
-    if (events.processing) {
+    /* NEEDS: C2x */
+    (void)(keycode);
+
+    if (events.processing == TRUE) {
         /* events are processing, pass all keys unmodified */
         return FALSE;
     }
 
-    guint state  = event->state;
-    guint keyval = event->keyval;
-    guchar string[32];
-    int len;
-
-    len = keyval_to_string(keyval, state, string);
+    guchar string[32] = { 0 };
+    int len = keyval_to_string(keyval, state, string);
 
     /* translate iso left tab to shift tab */
-    if (keyval == GDK_ISO_Left_Tab) {
-        keyval = GDK_Tab;
+    if (keyval == GDK_KEY_ISO_Left_Tab) {
+        keyval = GDK_KEY_Tab;
         state |= GDK_SHIFT_MASK;
     }
 
     if (len == 0 || len == 1) {
-        for (int i = 0; i < LENGTH(special_keys); i++) {
+        for (unsigned int i = 0; i < LENGTH(special_keys); i++) {
             if (special_keys[i].keyval == keyval
                 && (special_keys[i].state == 0 || state & special_keys[i].state)
             ) {
@@ -381,7 +377,7 @@ gboolean on_map_keypress(GtkWidget *widget, GdkEventKey* event, Client *c)
     c->state.typed         = TRUE;
     c->state.processed_key = TRUE;
 
-    queue_event(event);
+    queue_event(controller);
 
     MapState res = map_handle_keys(c, string, len, true);
 
@@ -408,7 +404,7 @@ gboolean on_map_keypress(GtkWidget *widget, GdkEventKey* event, Client *c)
  */
 static char *convert_keylabel(const char *in, int inlen, int *len)
 {
-    for (int i = 0; i < LENGTH(key_labels); i++) {
+    for (unsigned int i = 0; i < LENGTH(key_labels); i++) {
         if (inlen == key_labels[i].len
             && !strncmp(key_labels[i].label, in, inlen)
         ) {
@@ -528,34 +524,34 @@ static void free_map(Map *map)
  * Translate a keyvalue to utf-8 encoded and null terminated string.
  * Given string must have room for 6 bytes.
  */
-static int keyval_to_string(guint keyval, guint state, guchar *string)
+static int keyval_to_string(guint keyval, GdkModifierType state, guchar *string)
 {
     int len;
     guint32 uc;
 
     len = 1;
     switch (keyval) {
-        case GDK_Tab:
-        case GDK_KP_Tab:
-        case GDK_ISO_Left_Tab:
+        case GDK_KEY_Tab:
+        case GDK_KEY_KP_Tab:
+        case GDK_KEY_ISO_Left_Tab:
             string[0] = KEY_TAB;
             break;
 
-        case GDK_Linefeed:
+        case GDK_KEY_Linefeed:
             string[0] = KEY_NL;
             break;
 
-        case GDK_Return:
-        case GDK_ISO_Enter:
-        case GDK_3270_Enter:
+        case GDK_KEY_Return:
+        case GDK_KEY_ISO_Enter:
+        case GDK_KEY_3270_Enter:
             string[0] = KEY_CR;
             break;
 
-        case GDK_Escape:
+        case GDK_KEY_Escape:
             string[0] = KEY_ESC;
             break;
 
-        case GDK_BackSpace:
+        case GDK_KEY_BackSpace:
             string[0] = KEY_BS;
             break;
 
@@ -696,9 +692,9 @@ static int utf_char2bytes(guint c, guchar *buf)
 /**
  * Append an event into the queue.
  */
-static void queue_event(GdkEventKey *e)
+static void queue_event(GtkEventControllerKey *e)
 {
-    events.list = g_slist_append(events.list, gdk_event_copy((GdkEvent*)e));
+    events.list = g_slist_append(events.list, e);
 }
 
 /**
@@ -707,7 +703,7 @@ static void queue_event(GdkEventKey *e)
 static void process_events(void)
 {
     for (GSList *l = events.list; l != NULL; l = l->next) {
-        process_event((GdkEventKey*)l->data);
+        process_event((GtkEventControllerKey*)l->data);
         /* TODO take into account qk mapped key? */
     }
     free_events();
@@ -719,17 +715,17 @@ static void process_events(void)
 static void free_events(void)
 {
     if (events.list) {
-        g_slist_free_full(events.list, (GDestroyNotify)gdk_event_free);
+        g_slist_free(events.list);
         events.list = NULL;
     }
 }
 
-static void process_event(GdkEventKey* event)
+static void process_event(GtkEventControllerKey* event)
 {
     if (event) {
         /* signal not to queue other events */
         events.processing = TRUE;
-        gtk_main_do_event((GdkEvent*)event);
+        g_main_context_iteration(NULL, FALSE);
         events.processing = FALSE;
     }
 }
