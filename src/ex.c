@@ -404,6 +404,7 @@ void ex_input_changed(Client *c, const char *text)
 
     /* don't add line breaks if content is pasted from clipboard into inputbox */
     if (gtk_text_buffer_get_line_count(buffer) > 1) {
+        fprintf(stderr, "%s %s\n", __func__, text);
         /* remove everything from the buffer, except of the first line */
         gtk_text_buffer_get_iter_at_line(buffer, &start, 0);
         if (gtk_text_iter_forward_to_line_end(&start)) {
@@ -443,14 +444,14 @@ gboolean ex_fill_completion(GtkListStore *store, const char *input)
     gboolean found = FALSE;
 
     if (!input || *input == '\0') {
-        for (int i = 0; i < LENGTH(commands); i++) {
+        for (unsigned int i = 0; i < LENGTH(commands); i++) {
             cmd = &commands[i];
             gtk_list_store_append(store, &iter);
             gtk_list_store_set(store, &iter, COMPLETION_STORE_FIRST, cmd->name, -1);
             found = TRUE;
         }
     } else {
-        for (int i = 0; i < LENGTH(commands); i++) {
+        for (unsigned int i = 0; i < LENGTH(commands); i++) {
             cmd = &commands[i];
             if (g_str_has_prefix(cmd->name, input)) {
                 gtk_list_store_append(store, &iter);
@@ -628,15 +629,15 @@ static gboolean parse_count(const char **input, ExArg *arg)
  */
 static gboolean parse_command_name(Client *c, const char **input, ExArg *arg)
 {
-    int len      = 0;
-    int first    = 0;   /* number of first found command */
-    int matches  = 0;   /* number of commands that matches the input */
-    char cmd[20] = {0}; /* name of found command */
+    unsigned int len = 0;
+    int first        = 0;   /* number of first found command */
+    int matches      = 0;   /* number of commands that matches the input */
+    char cmd[20]     = {0}; /* name of found command */
 
     do {
         /* copy the next char into the cmd buffer */
         cmd[len++] = **input;
-        int i;
+        unsigned int i;
         for (i = first, matches = 0; i < LENGTH(commands); i++) {
             /* commands are grouped by their first letters, if we reached the
              * end of the group there are no more possible matches to find */
@@ -654,6 +655,7 @@ static gboolean parse_command_name(Client *c, const char **input, ExArg *arg)
         }
         (*input)++;
     } while (matches > 0 && **input && !VB_IS_SPACE(**input) && **input != '!');
+
 
     if (!matches) {
         /* read until next whitespace or end of input to get command name for
@@ -1048,7 +1050,7 @@ static VbCmdResult ex_queue(Client *c, const ExArg *arg)
  */
 static VbCmdResult ex_register(Client *c, const ExArg *arg)
 {
-    int idx;
+    unsigned int idx;
     char *reg;
     const char *regchars = REG_CHARS;
     GString *str = g_string_new("-- Register --");

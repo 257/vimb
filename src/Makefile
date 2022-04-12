@@ -4,13 +4,13 @@ OBJ = $(patsubst %.c, %.o, $(wildcard *.c))
 JSFILES  = $(wildcard scripts/*.js)
 CSSFILES = $(wildcard scripts/*.css)
 
-all: vimb webextension.subdir-all
+all: vimb
 
 clean: webextension.subdir-clean
 	$(RM) vimb vimb.so $(OBJ)
 	$(RM) scripts/scripts.h
 
-vimb: $(OBJ)
+vimb: $(OBJ) webextension.subdir-all
 	@echo "${CC} $@"
 	$(Q)$(CC) $(OBJ) $(LDFLAGS) -o $@
 

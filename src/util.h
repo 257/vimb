@@ -23,6 +23,9 @@
 #include <glib.h>
 #include "main.h"
 
+#define GDK_GET_CLIPBOARD (gdk_display_get_clipboard(gdk_display_get_default()))
+#define GDK_GET_PRIMARY (gdk_display_get_primary_clipboard(gdk_display_get_default()))
+
 enum {
     UTIL_EXP_TILDE   = 0x01, /* ~/ and ~user expansion */
     UTIL_EXP_DOLLAR  = 0x02, /* $ENV and ${ENV} expansion */

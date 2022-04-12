@@ -20,7 +20,6 @@
 #ifndef _COMMAND_H
 #define _COMMAND_H
 
-#include <gtk/gtk.h>
 #include "main.h"
 
 enum {

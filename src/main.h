@@ -25,6 +25,7 @@
 #ifndef FEATURE_NO_XEMBED
 #include <gtk/gtkx.h>
 #endif
+#include <gtk/gtk.h>
 #include <stdio.h>
 #include <webkit2/webkit2.h>
 #include "shortcut.h"
@@ -236,6 +237,9 @@ struct Client {
     /* WebKitWebContext    *webctx; */          /* not used atm, use webkit_web_context_get_default() instead */
     GtkWidget           *window, *input;
     WebKitWebView       *webview;
+    GtkApplication      *app;
+    GtkEventController *key_ctrler;
+    GtkEventController *scroll_ctrler;
     WebKitFindController *finder;
     WebKitWebInspector  *inspector;
     guint64             page_id;                /* page id of the webview */
@@ -274,6 +278,7 @@ struct Client {
 
 struct Vimb {
     char        *argv0;
+    GtkApplication *app;
     Client      *clients;
 #ifndef FEATURE_NO_XEMBED
     Window      embed;

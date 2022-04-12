@@ -623,6 +623,20 @@ static VbResult normal_navigate(Client *c, const NormalCmdInfo *info)
     return RESULT_COMPLETE;
 }
 
+typedef struct clipboard_data {
+    char **s;
+    gboolean processing;
+} cboard_data;
+
+void yank_selection_cb2(GObject *source_object, GAsyncResult *res, gpointer user_data)
+{
+    cboard_data *cboard_data = user_data;
+
+    *cboard_data->s =
+	    gdk_clipboard_read_text_finish(GDK_CLIPBOARD(source_object), res, NULL);
+    cboard_data->processing = FALSE;
+}
+
 static VbResult normal_open_clipboard(Client *c, const NormalCmdInfo *info)
 {
     Arg a = {info->key == 'P' ? TARGET_NEW : TARGET_CURRENT};
@@ -632,9 +646,19 @@ static VbResult normal_open_clipboard(Client *c, const NormalCmdInfo *info)
         a.s = g_strdup(vb_register_get(c, info->reg));
     } else {
         /* if no register is given use the system clipboard */
-        a.s = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_PRIMARY));
+        cboard_data cboard_data = {
+            .s = &a.s,
+            .processing = TRUE,
+        };
+        gdk_clipboard_read_text_async(GDK_GET_PRIMARY, NULL,
+                                      yank_selection_cb2, (gpointer)&cboard_data);
+        while (cboard_data.processing)
+            ;
         if (!a.s) {
-            a.s = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_NONE));
+            gdk_clipboard_read_text_async(GDK_GET_CLIPBOARD, NULL,
+                                          yank_selection_cb2, (gpointer)&cboard_data);
+            while (cboard_data.processing)
+                ;
         }
     }
 
@@ -733,7 +757,14 @@ static VbResult normal_search_selection(Client *c, const NormalCmdInfo *info)
     /* there is no function to get the selected text so we copy current
      * selection to clipboard */
     webkit_web_view_execute_editing_command(c->webview, WEBKIT_EDITING_COMMAND_COPY);
-    query = gtk_clipboard_wait_for_text(gtk_clipboard_get(GDK_SELECTION_PRIMARY));
+    cboard_data cboard_data = {
+        .s = &query,
+        .processing = TRUE,
+    };
+    gdk_clipboard_read_text_async(GDK_GET_PRIMARY, NULL,
+                                  yank_selection_cb2, (gpointer)&cboard_data);
+    while (cboard_data.processing)
+        ;
     if (!query) {
         return RESULT_ERROR;
     }

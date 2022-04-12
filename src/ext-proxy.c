@@ -191,9 +191,9 @@ static void on_vertical_scroll(GDBusConnection *connection,
         c->state.scroll_max     = max;
         c->state.scroll_percent = percent;
         c->state.scroll_top     = top;
-    }
 
-    vb_statusbar_update(c);
+        vb_statusbar_update(c);
+    }
 }
 
 void ext_proxy_eval_script(Client *c, char *js, GAsyncReadyCallback callback)
